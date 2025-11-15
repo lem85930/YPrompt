@@ -150,7 +150,7 @@ const authStore = useAuthStore()
 const navigationStore = useNavigationStore()
 
 // API配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 // 新建提示词状态
 const showCreateDialog = ref(false)

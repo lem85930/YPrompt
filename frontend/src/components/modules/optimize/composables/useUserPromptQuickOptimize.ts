@@ -499,7 +499,7 @@ ${qualityAnalysis.issues && qualityAnalysis.issues.length > 0 ? `\n**发现的�
       throw new Error('没有可保存的优化结果')
     }
     
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
     const token = localStorage.getItem('yprompt_token')
     
     if (!token) {

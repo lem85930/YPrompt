@@ -3,7 +3,8 @@
  * 统一处理API请求，自动携带token
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+// 生产环境使用相对路径，开发环境使用完整URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 /**
  * 获取token

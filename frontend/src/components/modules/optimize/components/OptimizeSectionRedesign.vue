@@ -313,7 +313,7 @@ const aiService = AIService.getInstance()
 const promptGenerator = PromptGeneratorService.getInstance()
 
 // API配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 // 自动/手动模式
 const isAutoMode = ref(true)

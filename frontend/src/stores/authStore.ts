@@ -70,7 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loginWithLinuxDo = async (code: string): Promise<boolean> => {
     isLoading.value = true
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/linux-do/login`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/linux-do/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loginWithPassword = async (username: string, password: string): Promise<boolean> => {
     isLoading.value = true
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/local/login`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/local/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export const useAuthStore = defineStore('auth', () => {
   const register = async (username: string, password: string, name?: string): Promise<boolean> => {
     isLoading.value = true
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/local/register`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/local/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +163,7 @@ export const useAuthStore = defineStore('auth', () => {
     registration_enabled: boolean
   } | null> => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/config`)
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/config`)
       const result = await response.json()
       
       if (result.code === 200 && result.data) {
@@ -182,7 +182,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/refresh`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token.value}`,
@@ -209,7 +209,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/userinfo`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/userinfo`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token.value}`,
@@ -234,7 +234,7 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = async () => {
     if (token.value) {
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888'}/api/auth/logout`, {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token.value}`,
