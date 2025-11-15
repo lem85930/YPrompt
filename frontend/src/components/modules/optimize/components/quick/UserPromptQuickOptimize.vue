@@ -362,8 +362,17 @@ const handleConfirmSave = async (saveData: {
 }) => {
   saving.value = true
   try {
-    await optimizeState.saveToLibrary(saveData)
-    notificationStore.success('已保存到我的提示词')
+    const result = await optimizeState.saveToLibrary(saveData)
+    
+    // 根据返回结果显示不同的提示
+    if (typeof result === 'object' && result.version) {
+      // 更新现有提示词，显示版本号
+      notificationStore.success(`提示词已更新至版本 ${result.version}`)
+    } else {
+      // 新建提示词
+      notificationStore.success('已保存到我的提示词')
+    }
+    
     showSaveDialog.value = false
   } catch (error: any) {
     notificationStore.error(error.message || '保存失败')

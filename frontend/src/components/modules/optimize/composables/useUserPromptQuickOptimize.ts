@@ -2,6 +2,7 @@
 
 import { reactive, computed } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useOptimizeStore } from '@/stores/optimizeStore'
 import { PromptConfigManager } from '@/config/prompts'
 import { AIService } from '@/services/aiService'
 import { parseAIJsonResponse } from '@/utils/jsonParser'
@@ -80,6 +81,7 @@ interface QuickOptimizeState {
  */
 export function useUserPromptQuickOptimize() {
   const settingsStore = useSettingsStore()
+  const optimizeStore = useOptimizeStore()
   const promptConfigManager = PromptConfigManager.getInstance()
   const aiService = AIService.getInstance()
   
@@ -524,35 +526,101 @@ ${qualityAnalysis.issues && qualityAnalysis.issues.length > 0 ? `\n**发现的�
         }
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/prompts/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      // 检查是否是更新已有提示词
+      const currentPromptId = optimizeStore.loadedPromptId
+      const isNewPrompt = !currentPromptId
+      
+      console.log('🔍 用户提示词保存 - currentPromptId:', currentPromptId, 'isNewPrompt:', isNewPrompt)
+      
+      if (isNewPrompt) {
+        // 新建提示词
+        console.log('📝 创建新的用户提示词')
+        const response = await fetch(`${API_BASE_URL}/api/prompts/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: saveData.title,
+            description: saveData.description,
+            final_prompt: promptText,
+            language: 'zh',
+            format: 'markdown',
+            prompt_type: 'user',
+            tags: saveData.tags,
+            is_public: saveData.isPublic ? 1 : 0,
+            system_prompt: saveData.systemPrompt,
+            conversation_history: formattedConversation
+          })
+        })
+        
+        const result = await response.json()
+        if (result.code !== 200) {
+          throw new Error(result.message || '保存失败')
+        }
+        
+        console.log('✅ 新提示词创建成功, ID:', result.data.id)
+        return true
+      } else {
+        // 更新已有提示词
+        console.log('🔄 更新现有用户提示词, ID:', currentPromptId)
+        
+        // 步骤1: 先更新提示词内容到主表
+        const updateData = {
           title: saveData.title,
           description: saveData.description,
           final_prompt: promptText,
-          language: 'zh',
-          format: 'markdown',
           prompt_type: 'user',
           tags: saveData.tags,
           is_public: saveData.isPublic ? 1 : 0,
-          // 扩展字段：存储系统提示词和对话上下文
           system_prompt: saveData.systemPrompt,
           conversation_history: formattedConversation
+        }
+        
+        const updateResponse = await fetch(`${API_BASE_URL}/api/prompts/${currentPromptId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updateData)
         })
-      })
-      
-      const result = await response.json()
-      if (result.code !== 200) {
-        throw new Error(result.message || '保存失败')
+        
+        const updateResult = await updateResponse.json()
+        if (updateResult.code !== 200) {
+          throw new Error(updateResult.message || '更新提示词失败')
+        }
+        
+        console.log('✅ 提示词主表更新成功')
+        
+        // 步骤2: 创建新版本（会保存刚更新的内容作为快照）
+        const versionData = {
+          change_type: 'patch',
+          change_summary: saveData.description || '优化用户提示词',
+          change_log: '通过用户提示词快速优化功能更新',
+          version_tag: 'stable'
+        }
+        
+        const versionResponse = await fetch(`${API_BASE_URL}/api/versions/${currentPromptId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(versionData)
+        })
+        
+        const versionResult = await versionResponse.json()
+        if (versionResult.code === 200) {
+          console.log('✅ 版本创建成功:', versionResult.data.version_number)
+          return { success: true, version: versionResult.data.version_number }
+        } else {
+          throw new Error(versionResult.message || '创建版本失败')
+        }
       }
-      
-      return true
     } catch (error: any) {
-      console.error('保存到我的提示词失败:', error)
+      console.error('❌ 保存到我的提示词失败:', error)
       throw error
     }
   }

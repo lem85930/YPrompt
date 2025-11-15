@@ -1,0 +1,6 @@
+2025-11-16 00:21:06,562 | ERROR | ❌ 创建提示词失败: FOREIGN KEY constraint failed
+2025-11-16 00:21:06,565 | ERROR | ❌ 保存提示词失败: FOREIGN KEY constraint failed
+2025-11-16 00:24:40,343 | ERROR | ❌ 创建提示词失败: FOREIGN KEY constraint failed
+2025-11-16 00:24:40,346 | ERROR | ❌ 保存提示词失败: FOREIGN KEY constraint failed
+2025-11-16 00:28:04,241 | ERROR | ❌ 创建提示词失败: FOREIGN KEY constraint failed
+2025-11-16 00:28:04,244 | ERROR | ❌ 保存提示词失败: FOREIGN KEY constraint failed
