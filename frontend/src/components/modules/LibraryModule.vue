@@ -135,13 +135,11 @@
 
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/authStore'
-import { useNavigationStore } from '@/stores/navigationStore'
-import { computed, ref, provide } from 'vue'
+import { ref, provide } from 'vue'
 import PromptList from './library/components/PromptList.vue'
 import SavePromptDialog from '@/components/preview/components/dialogs/SavePromptDialog.vue'
 
 const authStore = useAuthStore()
-const navigationStore = useNavigationStore()
 
 // API配置
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
