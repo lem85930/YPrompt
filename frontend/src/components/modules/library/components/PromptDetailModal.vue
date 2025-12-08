@@ -1,14 +1,14 @@
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-    <div class="prompt-detail-modal bg-white rounded-lg shadow-xl w-full h-[90vh] max-w-6xl mx-4 overflow-hidden flex flex-col">
+    <div class="prompt-detail-modal bg-white rounded-lg shadow-xl w-full h-[90vh] max-w-6xl mx-4 overflow-visible flex flex-col">
       <!-- 头部 -->
-      <div class="flex items-start justify-between p-6 border-b bg-gray-50">
-        <div class="flex-1 min-w-0">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between p-4 lg:p-6 border-b bg-gray-50 relative">
+        <div class="flex-1 min-w-0 space-y-4">
           <!-- 编辑模式 -->
           <div v-if="isEditing" class="space-y-3">
-            <div class="flex items-center gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
               <!-- 标题输入 -->
-              <div class="flex-1 min-w-0">
+              <div class="flex-1 min-w-0 w-full">
                 <input
                   v-model="editedTitle"
                   type="text"
@@ -18,7 +18,7 @@
               </div>
               
               <!-- 编辑模式按钮 -->
-              <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
                 <button
                   @click="handleCancelEdit"
                   class="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-1"
@@ -49,8 +49,8 @@
               placeholder="请输入描述（可选）"
             ></textarea>
             
-            <!-- 提示词设置：类型、可见性、标签（紧凑单行） -->
-            <div class="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+            <!-- 提示词设置：类型、可见性、标签 -->
+            <div class="flex flex-wrap items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
               <!-- 类型 -->
               <div class="flex items-center gap-1.5">
                 <span class="text-xs font-medium text-gray-600">类型</span>
@@ -91,62 +91,59 @@
               <div class="w-px h-4 bg-gray-300"></div>
               
               <!-- 标签 -->
-              <div class="flex items-center gap-1.5 flex-1 min-w-0">
-                <span class="text-xs font-medium text-gray-600 flex-shrink-0">标签</span>
-                <!-- 已有标签 -->
-                <div class="flex items-center gap-1 flex-wrap flex-1 min-w-0">
-                  <span
-                    v-for="(tag, index) in editedTags"
-                    :key="index"
-                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition-colors"
-                  >
-                    <span class="max-w-[80px] truncate">{{ tag }}</span>
-                    <button
-                      @click="removeTag(index)"
-                      class="text-blue-600 hover:text-blue-800 font-bold text-sm leading-none"
-                      title="移除标签"
-                    >
-                      ×
-                    </button>
-                  </span>
-                  <!-- 添加按钮 -->
+              <div class="flex flex-col gap-1 flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-medium text-gray-600 flex-shrink-0">标签</span>
                   <button
                     v-if="editedTags.length < 5"
                     @click="showTagInput = !showTagInput"
-                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs rounded transition-colors"
                     title="添加标签"
                   >
-                    <span>+</span>
+                    +
                   </button>
-                  <span v-else class="text-xs text-gray-400">(最多5个)</span>
+                  <span v-if="editedTags.length >= 5" class="text-xs text-gray-400">(最多5个)</span>
+                  <div class="flex flex-wrap gap-1 flex-1">
+                    <template v-if="editedTags.length">
+                      <span
+                        v-for="(tag, index) in editedTags"
+                        :key="index"
+                        class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition-colors"
+                      >
+                        <span class="max-w-[120px] truncate">{{ tag }}</span>
+                        <button
+                          @click="removeTag(index)"
+                          class="text-blue-600 hover:text-blue-800 font-bold text-sm leading-none"
+                          title="移除标签"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </template>
+                    <span v-else class="text-xs text-gray-400">暂无标签</span>
+                  </div>
                 </div>
               </div>
             </div>
             
             <!-- 标签输入框（展开时显示） -->
             <div v-if="showTagInput" class="px-3">
-              <div class="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <div class="flex items-center gap-2">
                 <input
                   ref="tagInputRef"
                   v-model="tagInput"
                   type="text"
                   placeholder="输入标签名（最多8字）"
                   maxlength="8"
-                  class="flex-1 px-2 py-1 border border-gray-300 rounded outline-none text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   @keydown.enter.prevent="addTag"
                   @keydown.esc="showTagInput = false"
                 />
                 <button
                   @click="addTag"
-                  class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                  class="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors whitespace-nowrap"
                 >
                   添加
-                </button>
-                <button
-                  @click="showTagInput = false; tagInput = ''"
-                  class="px-3 py-1 bg-gray-300 hover:bg-gray-400 text-gray-700 text-sm rounded transition-colors"
-                >
-                  取消
                 </button>
               </div>
             </div>
@@ -154,10 +151,10 @@
           
           <!-- 查看模式 -->
           <div v-else>
-            <div class="flex items-center gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-start gap-3">
               <!-- 标题和描述 -->
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                   <h2 class="text-xl font-semibold text-gray-900 truncate">{{ prompt?.title }}</h2>
                   <!-- 提示词类型标签 -->
                   <span 
@@ -173,7 +170,7 @@
               </div>
               
               <!-- 查看模式按钮 -->
-              <div class="flex items-center gap-2 flex-shrink-0">
+              <div class="flex flex-wrap items-center gap-2 flex-shrink-0 justify-start sm:justify-end">
                 <button
                   @click="handleCopy"
                   class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-1"
@@ -207,7 +204,7 @@
             </div>
           </div>
         </div>
-        <button @click="handleClose" class="text-gray-400 hover:text-gray-600 ml-4">
+        <button @click="handleClose" class="text-gray-400 hover:text-gray-600 absolute -top-3 -right-3 bg-white rounded-full shadow p-1">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -261,7 +258,7 @@
               {{ prompt.is_favorite ? '已收藏' : '未收藏' }}
             </span>
             
-            <span class="w-px h-4 bg-gray-300"></span>
+            <!-- <span class="w-px h-4 bg-gray-300"></span> -->
             
             <!-- 标签（仅查看模式显示） -->
             <div class="flex items-center gap-2">
@@ -308,11 +305,11 @@
               <textarea
                 v-if="isEditing"
                 v-model="editedContent"
-                class="w-full h-full p-4 outline-none resize-none text-sm text-gray-800 font-mono bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200"
+                class="w-full h-full min-h-[220px] p-4 outline-none resize-none text-sm text-gray-800 font-mono bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200"
                 placeholder="请输入提示词内容..."
               ></textarea>
               <!-- 查看模式 -->
-              <pre v-else class="h-full p-4 whitespace-pre-wrap text-sm text-gray-800 font-mono overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">{{ prompt.final_prompt }}</pre>
+              <pre v-else class="h-full min-h-[220px] p-4 whitespace-pre-wrap text-sm text-gray-800 font-mono overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">{{ prompt.final_prompt }}</pre>
             </div>
 
             <!-- 基本信息 -->

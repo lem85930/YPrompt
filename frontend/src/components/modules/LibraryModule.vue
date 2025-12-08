@@ -2,40 +2,54 @@
   <div class="h-full flex flex-col overflow-hidden p-2">
     <!-- 模块特定顶栏（整合用户信息和搜索功能） -->
     <div class="bg-white rounded-lg shadow-sm p-6 mb-4 flex-shrink-0">
-      <!-- 主要内容区域：用户信息和搜索 -->
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-        <!-- 用户信息区域 -->
-        <div v-if="authStore.isLoggedIn" class="flex items-center gap-4">
-          <!-- 头像 -->
-          <div class="relative">
-            <img 
-              v-if="authStore.user?.avatar" 
-              :src="authStore.user.avatar" 
-              :alt="authStore.user?.name"
-              class="w-14 h-14 rounded-full border-2 border-blue-500 shadow-md object-cover"
-            />
-            <div v-else class="w-14 h-14 rounded-full border-2 border-gray-300 bg-gray-100 flex items-center justify-center">
-              <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <!-- 在线状态指示器 -->
-            <div class="absolute bottom-0 right-0 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
-          </div>
-          
-          <!-- 用户详情 -->
-          <div class="min-w-0">
-            <h2 class="text-xl font-bold text-gray-900">{{ authStore.user?.name || '用户' }}</h2>
-            <div class="flex items-center gap-3 text-sm text-gray-600 mt-1">
-              <span v-if="authStore.user?.email" class="flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      <div class="flex flex-col gap-6">
+        <!-- 登录状态 -->
+        <div v-if="authStore.isLoggedIn" class="flex flex-col gap-4">
+          <div class="flex items-center gap-4 flex-wrap">
+            <div class="relative">
+              <img 
+                v-if="authStore.user?.avatar" 
+                :src="authStore.user.avatar" 
+                :alt="authStore.user?.name"
+                class="w-14 h-14 rounded-full border-2 border-blue-500 shadow-md object-cover"
+              />
+              <div v-else class="w-14 h-14 rounded-full border-2 border-gray-300 bg-gray-100 flex items-center justify-center">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                {{ authStore.user.email }}
-              </span>
-              <span v-if="authStore.user?.id" class="flex items-center gap-1">
-                ID: {{ authStore.user?.id }}
-              </span>
+              </div>
+              <div class="absolute bottom-0 right-0 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
+            </div>
+            
+            <div class="min-w-0 flex-1">
+              <h2 class="text-xl font-bold text-gray-900 truncate">{{ authStore.user?.name || '用户' }}</h2>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 mt-1">
+                <span v-if="authStore.user?.email" class="flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  {{ authStore.user.email }}
+                </span>
+                <span v-if="authStore.user?.id" class="flex items-center gap-1">
+                  ID: {{ authStore.user?.id }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-2 ml-auto">
+              <button
+                @click="showCreateDialog = true"
+                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap text-sm font-medium"
+              >
+                新建提示词
+              </button>
+              <button 
+                @click="handleLogout"
+                class="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors font-medium border border-transparent hover:border-red-200"
+                title="登出"
+              >
+                登出
+              </button>
             </div>
           </div>
         </div>
@@ -53,10 +67,9 @@
           </div>
         </div>
         
-        <!-- 搜索和操作区域 -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-          <!-- 搜索框 -->
-          <div class="relative">
+        <!-- 搜索区域 -->
+        <div class="flex flex-col">
+          <div class="relative w-full">
             <span class="absolute left-3.5 top-2.5 text-gray-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -66,32 +79,13 @@
               v-model="searchKeyword"
               type="text"
               placeholder="搜索提示词..."
-              class="w-80 pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none"
+              class="w-full sm:w-96 pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none"
               @input="handleSearch"
             />
           </div>
           
-          <!-- 操作按钮组 -->
-          <div class="flex items-center gap-3">
-            <!-- 新建按钮 -->
-            <button
-              @click="showCreateDialog = true"
-              class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap text-sm font-medium"
-            >
-              <span>新建提示词</span>
-            </button>
-            
-            <!-- 系统按钮组 -->
-            <div class="flex items-center gap-1 p-1 bg-gray-50 rounded-lg">
-              <button 
-                v-if="authStore.isLoggedIn"
-                @click="handleLogout"
-                class="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors font-medium"
-                title="登出"
-              >
-                登出
-              </button>
-            </div>
+          <div v-if="!authStore.isLoggedIn" class="mt-3 text-sm text-gray-500">
+            登录后可以创建提示词并访问个人库
           </div>
         </div>
       </div>
