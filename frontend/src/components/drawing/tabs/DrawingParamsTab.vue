@@ -80,18 +80,20 @@
         </div>
 
         <!-- imageSize: 图像尺寸 -->
-        <div>
+        <div class="mb-5">
           <label class="block text-sm font-medium text-gray-700 mb-2">
             imageSize (图像分辨率)
           </label>
           <div class="flex space-x-3">
+            <!-- 标准分辨率选项 - 不支持 imageSize 的模型隐藏 -->
             <button
+              v-if="!isImageSizeUnsupported"
               v-for="size in imageSizes"
               :key="size.value"
-              @click="config.imageSize = size.value; saveConfig()"
+              @click="selectStandardSize(size.value)"
               :class="[
                 'flex-1 px-4 py-3 border-2 rounded-lg transition-all',
-                config.imageSize === size.value
+                config.imageSize === size.value && !drawingStore.enableCustomResolution
                   ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
                   : 'border-gray-200 hover:border-gray-300 text-gray-700'
               ]"
@@ -101,9 +103,113 @@
                 <div class="text-xs text-gray-500 mt-1">{{ size.resolution }}</div>
               </div>
             </button>
+
+            <!-- 自定义分辨率选项 - 所有模型都显示 -->
+            <button
+              @click="toggleCustomResolution"
+              :class="[
+                isImageSizeUnsupported ? 'w-full' : 'flex-1',
+                'px-4 py-3 border-2 rounded-lg transition-all',
+                drawingStore.enableCustomResolution
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-700'
+              ]"
+            >
+              <div class="text-center">
+                <div class="font-bold">自定义</div>
+                <div class="text-xs text-gray-500 mt-1">
+                  {{ drawingStore.enableCustomResolution
+                    ? `${drawingStore.customResolution.width}×${drawingStore.customResolution.height}`
+                    : '点击设置' }}
+                </div>
+              </div>
+            </button>
           </div>
+
+          <!-- 自定义分辨率设置面板 -->
+          <div v-if="showCustomSettings" class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-gray-900">自定义分辨率设置</span>
+              <button
+                @click="closeCustomSettings"
+                class="text-gray-400 hover:text-gray-600"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 宽度 x 高度 输入 -->
+            <div class="flex items-center gap-2">
+              <div class="flex-1">
+                <input
+                  type="number"
+                  v-model.number="drawingStore.customResolution.width"
+                  @input="handleCustomResolutionChange"
+                  min="64"
+                  max="8192"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                  placeholder="1728"
+                />
+              </div>
+              <span class="text-2xl font-bold text-gray-400">×</span>
+              <div class="flex-1">
+                <input
+                  type="number"
+                  v-model.number="drawingStore.customResolution.height"
+                  @input="handleCustomResolutionChange"
+                  min="64"
+                  max="8192"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                  placeholder="2304"
+                />
+              </div>
+            </div>
+
+            <!-- 推荐宽高比显示 -->
+            <div v-if="customAspectRatio" class="bg-white rounded-lg p-2 border border-gray-200">
+              <div class="text-xs text-gray-600 flex items-center justify-between">
+                <span>推荐宽高比:</span>
+                <span class="font-semibold text-gray-900">{{ customAspectRatio }}</span>
+              </div>
+            </div>
+
+            <!-- 分辨率信息 -->
+            <div v-if="resolutionInfo" class="bg-white rounded-lg p-3 border border-gray-200">
+              <div class="text-xs space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-600">总像素:</span>
+                  <span class="font-mono text-gray-900">{{ resolutionInfo.megapixels }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-gray-600">映射到API:</span>
+                  <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">{{ resolutionInfo.mappedStandard }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-xs text-gray-600 bg-white rounded p-2 border border-gray-200">
+              <p class="mb-1"><strong>💡 工作原理：</strong></p>
+              <ol class="list-decimal list-inside space-y-0.5 ml-2">
+                <li>映射到最接近的API参数生成图片</li>
+                <li>下载时自动调整为自定义分辨率</li>
+              </ol>
+            </div>
+
+            <!-- 确认按钮 -->
+            <button
+              @click="confirmCustomResolution"
+              class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              确认
+            </button>
+          </div>
+
           <p class="text-xs text-gray-500 mt-2">
-            注意：2K和4K仅 gemini-3-pro-image-preview 支持，其他模型只支持1K
+            {{ drawingStore.enableCustomResolution
+              ? '使用自定义分辨率（下载时转换）'
+              : '注意：2K和4K仅 gemini-3-pro-image-preview 支持' }}
           </p>
         </div>
       </div>
@@ -279,8 +385,8 @@
         </div>
       </div>
 
-      <!-- 思考参数 -->
-      <div class="border-b pb-6">
+      <!-- 思考参数 - 不支持的模型完全隐藏 -->
+      <div v-if="thinkingSupport.supported" class="border-b pb-6">
         <div class="flex items-center justify-between mb-2">
           <h4 class="font-medium text-gray-800">思考参数 (thinkingConfig)</h4>
           <span v-if="thinkingSupport.note" class="text-xs text-gray-500">{{ thinkingSupport.note }}</span>
@@ -289,11 +395,7 @@
           自动根据模型系列切换 <code>thinkingLevel</code> 与 <code>thinkingBudget</code>。Gemini 3 系列使用思考等级，Gemini 2.5/2.0 系列使用思考令牌预算。
         </p>
 
-        <div v-if="!thinkingSupport.supported" class="p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
-          当前模型不支持思考配置或仅提供专用能力（如纯图像/TTS），因此不会向 API 发送思考参数。
-        </div>
-
-        <div v-else class="space-y-4">
+        <div class="space-y-4">
           <div class="space-y-2">
             <label
               class="flex items-center space-x-2 cursor-pointer"
@@ -881,6 +983,7 @@ import { ref, computed, watch } from 'vue'
 import { useDrawingStore } from '@/stores/drawingStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { getThinkingSupport } from '@/utils/thinkingSupport'
+import { getResolutionInfo } from '@/utils/resolutionMapper'
 
 const drawingStore = useDrawingStore()
 const notificationStore = useNotificationStore()
@@ -888,6 +991,94 @@ const config = computed(() => drawingStore.generationConfig)
 const currentProvider = computed(() => drawingStore.getCurrentProvider())
 const currentModel = computed(() => drawingStore.getCurrentModel())
 const showHelp = ref(false)
+const showCustomSettings = ref(false)
+
+// 检测模型是否不支持 imageSize 参数
+const isImageSizeUnsupported = computed(() => {
+  const modelId = currentModel.value?.id
+  // gemini-2.5-flash-image 不支持 imageSize，只支持 aspectRatio
+  const unsupportedModels = ['gemini-2.5-flash-image']
+  return modelId ? unsupportedModels.includes(modelId) : false
+})
+
+// 自定义分辨率信息
+const resolutionInfo = computed(() => {
+  if (!drawingStore.enableCustomResolution && !showCustomSettings.value) return null
+  return getResolutionInfo(
+    drawingStore.customResolution.width,
+    drawingStore.customResolution.height
+  )
+})
+
+// 计算宽高比
+const customAspectRatio = computed(() => {
+  const width = drawingStore.customResolution.width
+  const height = drawingStore.customResolution.height
+
+  if (!width || !height) return null
+
+  // 计算最大公约数
+  const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
+  const divisor = gcd(width, height)
+
+  const ratioW = width / divisor
+  const ratioH = height / divisor
+
+  // 常见宽高比映射
+  const commonRatios: { [key: string]: string } = {
+    '1:1': '正方形',
+    '3:4': '竖版 3:4',
+    '4:3': '横版 4:3',
+    '9:16': '竖版 9:16',
+    '16:9': '横版 16:9',
+    '2:3': '竖版 2:3',
+    '3:2': '横版 3:2'
+  }
+
+  const ratioKey = `${ratioW}:${ratioH}`
+  const description = commonRatios[ratioKey]
+
+  return description ? `${ratioKey} (${description})` : ratioKey
+})
+
+// 选择标准分辨率
+const selectStandardSize = (size: '1K' | '2K' | '4K') => {
+  drawingStore.enableCustomResolution = false
+  config.value.imageSize = size
+  showCustomSettings.value = false
+  saveConfig()
+}
+
+// 切换自定义分辨率
+const toggleCustomResolution = () => {
+  if (drawingStore.enableCustomResolution) {
+    // 如果已启用，点击后展开设置
+    showCustomSettings.value = !showCustomSettings.value
+  } else {
+    // 如果未启用，启用并展开设置
+    drawingStore.enableCustomResolution = true
+    showCustomSettings.value = true
+    saveConfig()
+  }
+}
+
+// 关闭自定义设置面板
+const closeCustomSettings = () => {
+  showCustomSettings.value = false
+}
+
+// 确认自定义分辨率
+const confirmCustomResolution = () => {
+  showCustomSettings.value = false
+  drawingStore.saveSettings()
+}
+
+// 处理自定义分辨率变化
+const handleCustomResolutionChange = () => {
+  // 实时保存，不需要等确认
+  drawingStore.saveSettings()
+}
+
 const saveConfig = () => {
   drawingStore.saveSettings()
 }
@@ -1106,6 +1297,16 @@ const handleReset = () => {
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }
     ]
   }
+
+  // 重置自定义分辨率
+  drawingStore.enableCustomResolution = false
+  drawingStore.customResolution = {
+    width: 1728,
+    height: 2304
+  }
+
+  // 关闭自定义设置面板
+  showCustomSettings.value = false
 
   // 清空responseSchemaJson
   responseSchemaJson.value = ''

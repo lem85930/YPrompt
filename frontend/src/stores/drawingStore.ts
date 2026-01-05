@@ -66,6 +66,11 @@ export interface GeneratedImage {
   thoughtTokens?: number  // 思考令牌使用量
   thoughtTrace?: ThoughtTraceItem[]  // 思考过程中的内容顺序
   usageMetadata?: UsageMetadata
+  customResolution?: {  // 自定义分辨率信息（用于下载时转换）
+    width: number
+    height: number
+    mappedStandard: '1K' | '2K' | '4K'
+  }
 }
 
 export interface TokensDetail {
@@ -203,6 +208,26 @@ const DRAWING_SETTINGS_KEY = 'yprompt_drawing_settings'
 const DRAWING_PROVIDERS_KEY = 'yprompt_drawing_providers'
 const DRAWING_CONVERSATION_KEY = 'yprompt_drawing_conversation'
 const DRAWING_IMAGES_KEY = 'yprompt_drawing_images'
+const DRAWING_OPTIMIZER_KEY = 'yprompt_drawing_optimizer'
+
+// 提示词优化器数据类型
+export interface OptimizerState {
+  omniDataCN: any  // OmniPromptStructure
+  omniDataEN: any  // OmniPromptStructure
+  diagnosis: any | null  // DiagnosisResult | null
+  referenceImages: any[]  // UploadedImage[]
+  selectedLogicModel: string  // LogicModel
+  activeLang: 'cn' | 'en'
+  aiToolProvider: string
+  aiToolModel: string
+  aiNaturalPromptEN: string
+  aiNaturalPromptCN: string
+  finalPrompt: string
+  isAiOptimized: boolean
+  hasUsedReverseEngineer: boolean
+  smartInputText: string  // 绘境灵析的文本框内容
+  generatedImage: string | null  // 图片生成的结果
+}
 
 export const useDrawingStore = defineStore('drawing', () => {
   // 状态
@@ -221,6 +246,45 @@ export const useDrawingStore = defineStore('drawing', () => {
   const selectedProvider = ref<string>('')
   const selectedModel = ref<string>('')
   const systemPrompt = ref<string>('')
+
+  // 自定义分辨率配置
+  const enableCustomResolution = ref(false)
+  const customResolution = ref({ width: 1728, height: 2304 })
+
+  // 提示词优化器状态
+  const optimizerState = ref<OptimizerState>({
+    omniDataCN: {
+      meta: { aspectRatio: "1:1", imageCount: 1, negativePrompt: "" },
+      artStyle: { medium: "", visualStyle: "", renderer: "" },
+      subject: { main: "", action: "", clothing: "", accessories: "" },
+      environment: { scene: "", time: "", weather: "", lighting: "" },
+      camera: { shotType: "", lens: "", composition: "", spatial: "" },
+      typography: { text: "", style: "", placement: "" },
+      logic: { constraints: "", details: "" }
+    },
+    omniDataEN: {
+      meta: { aspectRatio: "1:1", imageCount: 1, negativePrompt: "" },
+      artStyle: { medium: "", visualStyle: "", renderer: "" },
+      subject: { main: "", action: "", clothing: "", accessories: "" },
+      environment: { scene: "", time: "", weather: "", lighting: "" },
+      camera: { shotType: "", lens: "", composition: "", spatial: "" },
+      typography: { text: "", style: "", placement: "" },
+      logic: { constraints: "", details: "" }
+    },
+    diagnosis: null,
+    referenceImages: [],
+    selectedLogicModel: 'gemini-3-pro-preview',
+    activeLang: 'cn',
+    aiToolProvider: '',
+    aiToolModel: '',
+    aiNaturalPromptEN: '',
+    aiNaturalPromptCN: '',
+    finalPrompt: '',
+    isAiOptimized: false,
+    hasUsedReverseEngineer: false,
+    smartInputText: '',
+    generatedImage: null
+  })
 
   // 图像生成配置（默认值严格按照API文档）
   const generationConfig = ref<ImageGenerationConfig>({
@@ -419,7 +483,9 @@ export const useDrawingStore = defineStore('drawing', () => {
       selectedProvider: selectedProvider.value,
       selectedModel: selectedModel.value,
       generationConfig: generationConfig.value,
-      systemPrompt: systemPrompt.value
+      systemPrompt: systemPrompt.value,
+      enableCustomResolution: enableCustomResolution.value,
+      customResolution: customResolution.value
     }
     localStorage.setItem(DRAWING_SETTINGS_KEY, JSON.stringify(settings))
   }
@@ -432,6 +498,72 @@ export const useDrawingStore = defineStore('drawing', () => {
   // 注意：对话历史和图片的localStorage存储功能已禁用
   // 将来会上传到对象存储服务
 
+  // 方法：保存优化器状态
+  const saveOptimizerState = () => {
+    try {
+      localStorage.setItem(DRAWING_OPTIMIZER_KEY, JSON.stringify(optimizerState.value))
+    } catch (error) {
+      console.error('保存优化器状态失败:', error)
+    }
+  }
+
+  // 方法：加载优化器状态
+  const loadOptimizerState = () => {
+    try {
+      const saved = localStorage.getItem(DRAWING_OPTIMIZER_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        optimizerState.value = { ...optimizerState.value, ...parsed }
+      }
+    } catch (error) {
+      console.error('加载优化器状态失败:', error)
+    }
+  }
+
+  // 方法：更新优化器状态（并自动保存）
+  const updateOptimizerState = (updates: Partial<OptimizerState>) => {
+    optimizerState.value = { ...optimizerState.value, ...updates }
+    saveOptimizerState()
+  }
+
+  // 方法：重置优化器状态
+  const resetOptimizerState = () => {
+    optimizerState.value = {
+      omniDataCN: {
+        meta: { aspectRatio: "1:1", imageCount: 1, negativePrompt: "" },
+        artStyle: { medium: "", visualStyle: "", renderer: "" },
+        subject: { main: "", action: "", clothing: "", accessories: "" },
+        environment: { scene: "", time: "", weather: "", lighting: "" },
+        camera: { shotType: "", lens: "", composition: "", spatial: "" },
+        typography: { text: "", style: "", placement: "" },
+        logic: { constraints: "", details: "" }
+      },
+      omniDataEN: {
+        meta: { aspectRatio: "1:1", imageCount: 1, negativePrompt: "" },
+        artStyle: { medium: "", visualStyle: "", renderer: "" },
+        subject: { main: "", action: "", clothing: "", accessories: "" },
+        environment: { scene: "", time: "", weather: "", lighting: "" },
+        camera: { shotType: "", lens: "", composition: "", spatial: "" },
+        typography: { text: "", style: "", placement: "" },
+        logic: { constraints: "", details: "" }
+      },
+      diagnosis: null,
+      referenceImages: [],
+      selectedLogicModel: 'gemini-3-pro-preview',
+      activeLang: 'cn',
+      aiToolProvider: '',
+      aiToolModel: '',
+      aiNaturalPromptEN: '',
+      aiNaturalPromptCN: '',
+      finalPrompt: '',
+      isAiOptimized: false,
+      hasUsedReverseEngineer: false,
+      smartInputText: '',
+      generatedImage: null
+    }
+    saveOptimizerState()
+  }
+
   // 方法：从 localStorage 加载设置
   const loadSettings = () => {
     try {
@@ -441,6 +573,15 @@ export const useDrawingStore = defineStore('drawing', () => {
         if (settings.selectedProvider) selectedProvider.value = settings.selectedProvider
         if (settings.selectedModel) selectedModel.value = settings.selectedModel
         if (settings.systemPrompt) systemPrompt.value = settings.systemPrompt
+
+        // 加载自定义分辨率配置
+        if (settings.enableCustomResolution !== undefined) {
+          enableCustomResolution.value = settings.enableCustomResolution
+        }
+        if (settings.customResolution) {
+          customResolution.value = settings.customResolution
+        }
+
         if (settings.generationConfig) {
           generationConfig.value = {
             ...generationConfig.value,
@@ -475,7 +616,7 @@ export const useDrawingStore = defineStore('drawing', () => {
           baseURL: 'https://generativelanguage.googleapis.com/v1beta',
           models: [
             { id: 'gemini-3-pro-image-preview', name: 'gemini-3-pro-image-preview', supportsImage: true, apiType: 'google' },
-            { id: 'gemini-2.5-flash-lite', name: 'gemini-2.5-flash-lite', supportsImage: false, apiType: 'google' }
+            { id: 'gemini-3-flash-preview', name: 'gemini-3-flash-preview', supportsImage: false, apiType: 'google' }
           ]
         }]
         saveProviders()
@@ -544,6 +685,7 @@ export const useDrawingStore = defineStore('drawing', () => {
 
   // 初始化时加载设置
   loadSettings()
+  loadOptimizerState()
 
   return {
     // 状态
@@ -559,6 +701,9 @@ export const useDrawingStore = defineStore('drawing', () => {
     selectedModel,
     systemPrompt,
     generationConfig,
+    enableCustomResolution,
+    customResolution,
+    optimizerState,
 
     // 方法
     addMessage,
@@ -579,6 +724,9 @@ export const useDrawingStore = defineStore('drawing', () => {
     saveProviders,
     loadSettings,
     deleteImage,
-    deleteMessage
+    deleteMessage,
+    updateOptimizerState,
+    saveOptimizerState,
+    resetOptimizerState
   }
 })

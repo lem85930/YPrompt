@@ -13,7 +13,7 @@
             :value="name"
             @input="$emit('update:name', ($event.target as HTMLInputElement).value)"
             type="text"
-            placeholder="例如：gemini-2.5-flash-lite"
+            placeholder="例如：gemini-3-flash-preview"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>

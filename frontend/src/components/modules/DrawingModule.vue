@@ -5,7 +5,7 @@
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="min-w-0">
           <h1 class="text-xl lg:text-2xl font-bold text-gray-800 mb-1">AI 绘图</h1>
-          <p class="text-sm lg:text-base text-gray-600">通过多轮对话生成和编辑图片</p>
+
         </div>
 
         <!-- 模型选择器 -->
@@ -62,45 +62,72 @@
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- 图片预览区 - 顶部横向滚动 -->
-    <div v-if="currentAttachments.length > 0" class="bg-white rounded-lg shadow-sm p-3 mb-4 flex-shrink-0">
-      <div class="flex gap-3 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-2">
-        <div
-          v-for="attachment in currentAttachments"
-          :key="attachment.id"
-          class="flex-shrink-0 cursor-pointer group"
-          @click="openPreview(attachment)"
+      <!-- 模式选择 -->
+      <div class="flex space-x-2 mt-4">
+        <button
+          v-for="mode in drawingModes"
+          :key="mode.key"
+          @click="handleModeChange(mode.key)"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            activeMode === mode.key
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ]"
         >
-          <img
-            :src="attachment.preview"
-            :alt="attachment.name"
-            :title="attachment.name + ' - 点击放大'"
-            class="h-32 w-auto object-contain rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all shadow-sm hover:shadow-lg"
-          />
-        </div>
+          {{ mode.label }}
+        </button>
       </div>
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- 左侧：对话区域 -->
-      <div class="flex flex-col min-h-0">
-        <DrawingChat
-          @send="handleSendMessage"
-          @clear="handleClearChat"
-          @attachments-change="handleAttachmentsChange"
-          @regenerate="handleRegenerate"
-          :streaming-text="currentStreamingText"
-          :loading-message="loadingMessage"
-          :elapsed-time="elapsedSeconds"
-        />
+    <div class="flex-1 overflow-hidden">
+      <!-- 生图改图模式 -->
+      <div v-if="activeMode === 'generate'" class="h-full flex flex-col">
+        <!-- 图片预览区 - 顶部横向滚动 -->
+        <div v-if="currentAttachments.length > 0" class="bg-white rounded-lg shadow-sm p-3 mb-4 flex-shrink-0">
+          <div class="flex gap-3 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-2">
+            <div
+              v-for="attachment in currentAttachments"
+              :key="attachment.id"
+              class="flex-shrink-0 cursor-pointer group"
+              @click="openPreview(attachment)"
+            >
+              <img
+                :src="attachment.preview"
+                :alt="attachment.name"
+                :title="attachment.name + ' - 点击放大'"
+                class="h-32 w-auto object-contain rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-all shadow-sm hover:shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- 左侧：对话区域 -->
+          <div class="flex flex-col min-h-0">
+            <DrawingChat
+              @send="handleSendMessage"
+              @clear="handleClearChat"
+              @attachments-change="handleAttachmentsChange"
+              @regenerate="handleRegenerate"
+              :streaming-text="currentStreamingText"
+              :loading-message="loadingMessage"
+              :elapsed-time="elapsedSeconds"
+            />
+          </div>
+
+          <!-- 右侧：结果展示区域 -->
+          <div class="flex flex-col min-h-0">
+            <DrawingResult />
+          </div>
+        </div>
       </div>
 
-      <!-- 右侧：结果展示区域 -->
-      <div class="flex flex-col min-h-0">
-        <DrawingResult />
+      <!-- 提示词优化模式 -->
+      <div v-else-if="activeMode === 'optimize'" class="h-full overflow-y-auto">
+        <DrawingPromptOptimizer />
       </div>
     </div>
 
@@ -144,11 +171,35 @@ import { ref, computed, onMounted } from 'vue'
 import { Settings, AlertCircle, X } from 'lucide-vue-next'
 import { useDrawingStore } from '@/stores/drawingStore'
 import { GeminiDrawingService } from '@/services/geminiDrawingService'
+import { mapResolutionToStandard } from '@/utils/resolutionMapper'
 import DrawingChat from '@/components/drawing/DrawingChat.vue'
 import DrawingResult from '@/components/drawing/DrawingResult.vue'
 import DrawingSettings from '@/components/drawing/DrawingSettings.vue'
+import DrawingPromptOptimizer from '@/components/drawing/DrawingPromptOptimizer.vue'
 
 const drawingStore = useDrawingStore()
+
+// localStorage key
+const ACTIVE_MODE_KEY = 'yprompt_drawing_active_mode'
+
+// 模式状态
+const activeMode = ref<'generate' | 'optimize'>('generate')
+
+// 从 localStorage 恢复模式
+try {
+  const savedMode = localStorage.getItem(ACTIVE_MODE_KEY)
+  if (savedMode && ['generate', 'optimize'].includes(savedMode)) {
+    activeMode.value = savedMode as 'generate' | 'optimize'
+  }
+} catch (e) {
+  console.error('读取 activeMode 失败:', e)
+}
+
+// 模式配置
+const drawingModes: Array<{ key: 'generate' | 'optimize'; label: string }> = [
+  { key: 'generate', label: '生图改图' },
+  { key: 'optimize', label: '提示词优化' }
+]
 
 // 状态
 const showSettings = ref(false)
@@ -172,6 +223,17 @@ const openPreview = (attachment: { id: string; preview: string; name: string }) 
 // 关闭图片预览
 const closePreview = () => {
   previewImage.value = null
+}
+
+// 处理模式切换
+const handleModeChange = (mode: 'generate' | 'optimize') => {
+  activeMode.value = mode
+  // 保存到 localStorage
+  try {
+    localStorage.setItem(ACTIVE_MODE_KEY, mode)
+  } catch (e) {
+    console.error('保存 activeMode 失败:', e)
+  }
 }
 
 // 可用的提供商
@@ -346,6 +408,9 @@ const handleSendMessage = async (
 
       // 声明 response 变量（在条件块外部，以便后续访问）
       let response: any
+      // 声明自定义分辨率变量（在条件块外部，以便后续访问）
+      let originalImageSize: '1K' | '2K' | '4K' | undefined
+      let mappedResolution: '1K' | '2K' | '4K' | undefined
 
       // 检查是否需要批量生成
       if (batchCount > 1) {
@@ -473,6 +538,16 @@ const handleSendMessage = async (
         }
       } else {
         // === 单次生成（原有逻辑） ===
+        // 处理自定义分辨率
+        if (drawingStore.enableCustomResolution) {
+          mappedResolution = mapResolutionToStandard(
+            drawingStore.customResolution.width,
+            drawingStore.customResolution.height
+          )
+          originalImageSize = drawingStore.generationConfig.imageSize
+          drawingStore.generationConfig.imageSize = mappedResolution
+        }
+
         response = await service.generateContent(
           model.id,
           drawingStore.conversationHistory,
@@ -482,6 +557,11 @@ const handleSendMessage = async (
           false,
           systemPrompt || undefined
         )
+
+        // 恢复原始分辨率设置
+        if (drawingStore.enableCustomResolution && originalImageSize) {
+          drawingStore.generationConfig.imageSize = originalImageSize
+        }
 
         // 检查是否被阻止
         if (service.isBlocked(response)) {
@@ -506,6 +586,14 @@ const handleSendMessage = async (
             drawingStore.generationConfig
           )
           generatedImages.forEach(image => {
+            // 添加自定义分辨率元数据
+            if (drawingStore.enableCustomResolution && mappedResolution) {
+              image.customResolution = {
+                width: drawingStore.customResolution.width,
+                height: drawingStore.customResolution.height,
+                mappedStandard: mappedResolution
+              }
+            }
             drawingStore.addGeneratedImage(image)
           })
 
@@ -739,6 +827,19 @@ const handleRegenerate = async () => {
 
         const generatePromises = imageCandidates.map(async (candidate, idx) => {
           try {
+            // 处理自定义分辨率
+            let batchOriginalImageSize: '1K' | '2K' | '4K' | undefined
+            let batchMappedResolution: '1K' | '2K' | '4K' | undefined
+
+            if (drawingStore.enableCustomResolution) {
+              batchMappedResolution = mapResolutionToStandard(
+                drawingStore.customResolution.width,
+                drawingStore.customResolution.height
+              )
+              batchOriginalImageSize = drawingStore.generationConfig.imageSize
+              drawingStore.generationConfig.imageSize = batchMappedResolution
+            }
+
             const batchResponse = await service.generateContent(
               model.id,
               drawingStore.conversationHistory.slice(0, -1),
@@ -748,6 +849,11 @@ const handleRegenerate = async () => {
               true,
               systemPrompt || undefined
             )
+
+            // 恢复原始分辨率设置
+            if (drawingStore.enableCustomResolution && batchOriginalImageSize) {
+              drawingStore.generationConfig.imageSize = batchOriginalImageSize
+            }
 
             if (service.isBlocked(batchResponse)) {
               candidate.error = service.getBlockReason(batchResponse)
@@ -774,6 +880,15 @@ const handleRegenerate = async () => {
                   }
                 }
               }
+
+              // 添加自定义分辨率元数据到批量生成的候选
+              if (drawingStore.enableCustomResolution && batchMappedResolution) {
+                candidate.customResolution = {
+                  width: drawingStore.customResolution.width,
+                  height: drawingStore.customResolution.height,
+                  mappedStandard: batchMappedResolution
+                }
+              }
             }
 
             candidate.isGenerating = false
@@ -795,6 +910,19 @@ const handleRegenerate = async () => {
         }
       } else {
         // 单次生成
+        // 处理自定义分辨率
+        let regenOriginalImageSize: '1K' | '2K' | '4K' | undefined
+        let regenMappedResolution: '1K' | '2K' | '4K' | undefined
+
+        if (drawingStore.enableCustomResolution) {
+          regenMappedResolution = mapResolutionToStandard(
+            drawingStore.customResolution.width,
+            drawingStore.customResolution.height
+          )
+          regenOriginalImageSize = drawingStore.generationConfig.imageSize
+          drawingStore.generationConfig.imageSize = regenMappedResolution
+        }
+
         response = await service.generateContent(
           model.id,
           drawingStore.conversationHistory,
@@ -804,6 +932,11 @@ const handleRegenerate = async () => {
           false,
           systemPrompt || undefined
         )
+
+        // 恢复原始分辨率设置
+        if (drawingStore.enableCustomResolution && regenOriginalImageSize) {
+          drawingStore.generationConfig.imageSize = regenOriginalImageSize
+        }
 
         if (service.isBlocked(response)) {
           const blockReason = service.getBlockReason(response)
@@ -823,6 +956,14 @@ const handleRegenerate = async () => {
             drawingStore.generationConfig
           )
           generatedImages.forEach(image => {
+            // 添加自定义分辨率元数据
+            if (drawingStore.enableCustomResolution && regenMappedResolution) {
+              image.customResolution = {
+                width: drawingStore.customResolution.width,
+                height: drawingStore.customResolution.height,
+                mappedStandard: regenMappedResolution
+              }
+            }
             drawingStore.addGeneratedImage(image)
           })
 

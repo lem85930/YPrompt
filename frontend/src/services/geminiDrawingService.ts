@@ -93,7 +93,8 @@ export class GeminiDrawingService {
     silent: boolean = false,  // 静默模式，不输出日志
     systemPrompt?: string
   ): Promise<GeminiResponse> {
-    const url = `${this.baseUrl}/models/${model}:generateContent`
+    // 根据官方文档，使用查询参数传递 API key
+    const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`
 
     // 优化：图像生成模型只需要最近的上下文（加快生图速度）
     // 只取最近一条AI消息（包含图片+thoughtSignature）和最新用户消息
@@ -201,8 +202,7 @@ export class GeminiDrawingService {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': this.apiKey  // 使用header传递API key
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody),
       signal: abortSignal  // 支持中断请求
@@ -230,7 +230,7 @@ export class GeminiDrawingService {
   private buildGenerationConfig(config: ImageGenerationConfig, supportsImage: boolean = false, modelId?: string) {
     const generationConfig: any = {}
 
-    // 基础生成参数
+    // 基础生成参数 - 根据官方文档，gemini-2.5-flash-image 支持这些参数
     generationConfig.temperature = config.temperature
     generationConfig.topP = config.topP
     generationConfig.topK = config.topK
@@ -274,67 +274,61 @@ export class GeminiDrawingService {
       generationConfig.enableEnhancedCivicAnswers = true
     }
 
-    // 响应模态（指定返回内容类型：TEXT、IMAGE 或两者）
-    // 注意：仅图像生成模型支持此参数，文本模型不支持
-    if (supportsImage && config.responseModalities && config.responseModalities.length > 0) {
-      generationConfig.responseModalities = config.responseModalities
-    }
+    // 思考配置 thinkingConfig - 根据模型支持情况添加
+    if (config.thinkingConfig && config.thinkingConfig.includeThoughts) {
+      // 获取模型的思考支持情况
+      const thinkingSupport = getThinkingSupport(modelId, { supportsImage })
 
-    // 响应格式 MIME 类型
-    // 注意：当 responseModalities 包含 "IMAGE" 时，不能使用 text/plain
-    // 图片必须以 application/json 格式返回（默认值），否则会报错
-    const hasImageModality = supportsImage && config.responseModalities?.includes('IMAGE')
-    if (!hasImageModality) {
-      // 仅当不包含图像时，才使用用户配置的 responseMimeType
-      generationConfig.responseMimeType = config.responseMimeType
-    }
-    // 包含图像时，不设置此参数，让 API 使用默认的 application/json
+      // 调试日志
+      console.log('[buildGenerationConfig] 思考配置检测:', {
+        modelId,
+        supportsImage,
+        supported: thinkingSupport.supported,
+        thinkingMode: thinkingSupport.mode,
+        includeThoughtsSupported: thinkingSupport.includeThoughts,
+        configThinkingLevel: config.thinkingConfig.thinkingLevel,
+        configThinkingBudget: config.thinkingConfig.thinkingBudget
+      })
 
-    // 思考配置 thinkingConfig
-    if (config.thinkingConfig) {
-      const support = getThinkingSupport(modelId, { supportsImage })
-      const thinkingInput = config.thinkingConfig
-      if (support.supported) {
-        const thinkingConfig: Record<string, any> = {}
-        if (thinkingInput.includeThoughts) {
-          thinkingConfig.includeThoughts = true
+      // 只有当模型支持思考配置时才添加 thinkingConfig
+      if (thinkingSupport.supported && thinkingSupport.includeThoughts) {
+        generationConfig.thinkingConfig = {
+          includeThoughts: true
         }
-        if (
-          support.mode === 'level' &&
-          thinkingInput.thinkingLevel &&
-          support.levelOptions?.some(opt => opt.value === thinkingInput.thinkingLevel)
-        ) {
-          thinkingConfig.thinkingLevel = thinkingInput.thinkingLevel
+
+        // 只在支持 thinkingLevel 的模型上添加（mode === 'level'）
+        if (thinkingSupport.mode === 'level' && config.thinkingConfig.thinkingLevel) {
+          generationConfig.thinkingConfig.thinkingLevel = config.thinkingConfig.thinkingLevel
+          console.log('[buildGenerationConfig] 添加 thinkingLevel:', config.thinkingConfig.thinkingLevel)
         }
-        if (
-          support.mode === 'budget' &&
-          thinkingInput.thinkingBudget !== undefined &&
-          thinkingInput.thinkingBudget !== null &&
-          !Number.isNaN(thinkingInput.thinkingBudget)
-        ) {
-          thinkingConfig.thinkingBudget = thinkingInput.thinkingBudget
+
+        // 只在支持 thinkingBudget 的模型上添加（mode === 'budget'）
+        if (thinkingSupport.mode === 'budget' &&
+            config.thinkingConfig.thinkingBudget !== undefined &&
+            config.thinkingConfig.thinkingBudget !== null) {
+          generationConfig.thinkingConfig.thinkingBudget = config.thinkingConfig.thinkingBudget
+          console.log('[buildGenerationConfig] 添加 thinkingBudget:', config.thinkingConfig.thinkingBudget)
         }
-        if (Object.keys(thinkingConfig).length > 0) {
-          generationConfig.thinkingConfig = thinkingConfig
-        }
+
+        console.log('[buildGenerationConfig] 最终 thinkingConfig:', generationConfig.thinkingConfig)
+      } else {
+        console.log('[buildGenerationConfig] 模型不支持思考配置，跳过添加 thinkingConfig')
       }
     }
 
     // 图像配置 imageConfig（仅当模型支持图像生成时）
-    if (supportsImage && (config.aspectRatio || config.imageSize)) {
-      generationConfig.imageConfig = {}
-      if (config.aspectRatio) {
-        generationConfig.imageConfig.aspectRatio = config.aspectRatio
+    // 注意: gemini-2.5-flash-image 不支持 imageSize，只支持 aspectRatio
+    if (supportsImage && config.aspectRatio) {
+      generationConfig.imageConfig = {
+        aspectRatio: config.aspectRatio
       }
-      if (config.imageSize) {
-        generationConfig.imageConfig.imageSize = config.imageSize
-      }
+      // imageSize 不支持，已移除
     }
 
-    // 媒体分辨率 mediaResolution（如果非默认）
-    if (config.mediaResolution !== 'MEDIA_RESOLUTION_UNSPECIFIED') {
-      generationConfig.mediaResolution = config.mediaResolution
-    }
+    // 以下参数不在官方文档的 generationConfig 列表中，不添加
+    // responseModalities - 文档未列出
+    // responseMimeType - 文档未列出
+    // mediaResolution - 文档未列出
 
     return generationConfig
   }
@@ -440,8 +434,8 @@ export class GeminiDrawingService {
     abortSignal?: AbortSignal,  // 支持中断请求
     systemPrompt?: string
   ): AsyncIterable<{ text?: string; thought?: string; done?: boolean }> {
-    // 使用SSE格式的流式API
-    const url = `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse`
+    // 使用SSE格式的流式API，根据官方文档使用查询参数传递 API key
+    const url = `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse&key=${this.apiKey}`
 
     // 优化：图像生成模型只需要最近的上下文（加快生图速度）
     // 只取最近一条AI消息（包含图片+thoughtSignature）和最新用户消息
@@ -527,8 +521,7 @@ export class GeminiDrawingService {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': this.apiKey  // 使用header传递API key
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody),
       signal: abortSignal  // 支持中断请求

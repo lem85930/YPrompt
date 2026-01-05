@@ -556,11 +556,75 @@ const toggleDetails = (imageId: string) => {
 }
 
 // 方法：下载图片
-const downloadImage = (image: GeneratedImage) => {
-  const link = document.createElement('a')
-  link.href = `data:${image.mimeType};base64,${image.imageData}`
-  link.download = `drawing_${image.timestamp}.${image.mimeType.split('/')[1]}`
-  link.click()
+const downloadImage = async (image: GeneratedImage) => {
+  // 确定要使用的分辨率（优先使用当前设置，其次使用图片自带的）
+  const targetResolution = drawingStore.enableCustomResolution
+    ? drawingStore.customResolution  // 使用当前设置的自定义分辨率
+    : image.customResolution          // 使用图片生成时的分辨率
+
+  // 检查是否需要自定义分辨率转换
+  if (targetResolution) {
+    try {
+      // 加载原始图片
+      const img = new Image()
+      const imageUrl = `data:${image.mimeType};base64,${image.imageData}`
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = imageUrl
+      })
+
+      // 创建 Canvas 并设置为自定义分辨率
+      const canvas = document.createElement('canvas')
+      canvas.width = targetResolution.width
+      canvas.height = targetResolution.height
+
+      // 在 Canvas 上绘制图片（自动缩放）
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error('无法创建 Canvas 上下文')
+      }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      // 将 Canvas 转换为 Blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Canvas 转换失败'))
+          }
+        }, image.mimeType)
+      })
+
+      // 下载转换后的图片
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `drawing_${targetResolution.width}x${targetResolution.height}_${image.timestamp}.${image.mimeType.split('/')[1]}`
+      link.click()
+
+      // 释放 URL 对象
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (error) {
+      console.error('自定义分辨率转换失败:', error)
+      alert('图片转换失败，将下载原始图片')
+
+      // 降级为下载原始图片
+      const link = document.createElement('a')
+      link.href = `data:${image.mimeType};base64,${image.imageData}`
+      link.download = `drawing_${image.timestamp}.${image.mimeType.split('/')[1]}`
+      link.click()
+    }
+  } else {
+    // 没有自定义分辨率，直接下载原图
+    const link = document.createElement('a')
+    link.href = `data:${image.mimeType};base64,${image.imageData}`
+    link.download = `drawing_${image.timestamp}.${image.mimeType.split('/')[1]}`
+    link.click()
+  }
 }
 
 // 方法：删除图片
